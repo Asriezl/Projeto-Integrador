@@ -1,0 +1,721 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Protótipo Interativo - Sistema Fashion Stock</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/@phosphor-icons/web"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+        body { 
+            font-family: 'Inter', sans-serif; 
+            background-color: #f3f4f6; 
+        }
+        
+        /* Efeito de Varredura para a Antena RFID */
+        .linha-scanner {
+            width: 100%;
+            height: 2px;
+            background-color: #3b82f6;
+            position: absolute;
+            top: 0;
+            left: 0;
+            box-shadow: 0 0 10px #3b82f6;
+            animation: varrer 2s infinite linear;
+            display: none;
+        }
+        @keyframes varrer {
+            0% { top: 0; }
+            50% { top: 100%; }
+            100% { top: 0; }
+        }
+        .escanear .linha-scanner { 
+            display: block; 
+        }
+        
+        /* Customização da Barra de Rolagem */
+        ::-webkit-scrollbar { 
+            width: 6px; 
+        }
+        ::-webkit-scrollbar-track { 
+            background: transparent; 
+        }
+        ::-webkit-scrollbar-thumb { 
+            background: #cbd5e1; 
+            border-radius: 10px; 
+        }
+        ::-webkit-scrollbar-thumb:hover { 
+            background: #94a3b8; 
+        }
+    </style>
+</head>
+<body class="h-screen w-full flex overflow-hidden text-slate-800">
+
+    <div id="container-notificacao" class="fixed top-5 right-5 z-50 flex flex-col gap-2"></div>
+
+    <div id="tela-login" class="w-full h-full flex items-center justify-center bg-slate-900 bg-[url('https://images.unsplash.com/photo-1441984904996-e0b6ba687e04?q=80&w=2070&auto=format&fit=crop')] bg-cover bg-center bg-blend-overlay">
+        <div class="bg-white p-8 rounded-xl shadow-2xl w-full max-w-md border border-slate-100">
+            <div class="text-center mb-8">
+                <div class="inline-flex items-center justify-center w-16 h-16 rounded-full bg-blue-100 text-blue-600 mb-4">
+                    <i class="ph ph-barcode text-3xl"></i>
+                </div>
+                <h1 class="text-2xl font-bold text-slate-800 uppercase tracking-wide">Fashion Stock</h1>
+                <p class="text-sm text-slate-500 mt-1">Controle de Estoque Baseado em RFID</p>
+            </div>
+            
+            <form onsubmit="event.preventDefault(); executarLogin();" class="space-y-5">
+                <div>
+                    <label class="block text-sm font-medium text-slate-700 mb-1">E-mail Corporativo</label>
+                    <div class="relative">
+                        <i class="ph ph-envelope-simple absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400 text-lg"></i>
+                        <input type="email" id="login-email" value="gerente@fashionstock.com" class="w-full pl-10 pr-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all" required>
+                    </div>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-slate-700 mb-1">Senha de Acesso</label>
+                    <div class="relative">
+                        <i class="ph ph-lock-key absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400 text-lg"></i>
+                        <input type="password" id="login-senha" value="123456" class="w-full pl-10 pr-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all" required>
+                    </div>
+                </div>
+                <div class="flex items-center justify-between">
+                    <label class="flex items-center cursor-pointer">
+                        <input type="checkbox" class="w-4 h-4 text-blue-600 border-slate-300 rounded focus:ring-blue-500">
+                        <span class="ml-2 text-sm text-slate-600">Lembrar credenciais</span>
+                    </label>
+                    <a href="#" class="text-sm text-blue-600 hover:underline">Recuperar senha</a>
+                </div>
+                <button type="submit" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-medium py-2.5 rounded-lg transition-colors flex items-center justify-center gap-2">
+                    Acessar o Sistema <i class="ph ph-sign-in"></i>
+                </button>
+            </form>
+            <div class="mt-6 text-center text-xs text-slate-400">
+                &copy; 2026 Equipe P15 - Centro Universitário de Brasília
+            </div>
+        </div>
+    </div>
+
+    <div id="container-aplicacao" class="hidden w-full h-full flex">
+        
+        <aside class="w-64 bg-slate-900 text-slate-300 flex flex-col shadow-xl z-20 shrink-0">
+            <div class="p-5 flex items-center gap-3 border-b border-slate-800">
+                <div class="w-10 h-10 rounded-lg bg-blue-600 flex items-center justify-center text-white">
+                    <i class="ph ph-barcode text-xl"></i>
+                </div>
+                <div>
+                    <h2 class="text-white font-bold tracking-wider text-sm">FASHION STOCK</h2>
+                    <p class="text-xs text-blue-400" id="perfil-usuario-painel">Administrador</p>
+                </div>
+            </div>
+            
+            <nav class="flex-1 py-4 px-3 flex flex-col gap-1">
+                <button onclick="navegarPara('dashboard')" id="menu-dashboard" class="botao-menu w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium bg-blue-600/10 text-blue-400 transition-colors">
+                    <i class="ph ph-squares-four text-lg"></i> Painel de Controle
+                </button>
+                <button onclick="navegarPara('produtos')" id="menu-produtos" class="botao-menu w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium hover:bg-slate-800 hover:text-white transition-colors">
+                    <i class="ph ph-t-shirt text-lg"></i> Cadastro de Produtos
+                </button>
+                <button onclick="navegarPara('inventario')" id="menu-inventario" class="botao-menu w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium hover:bg-slate-800 hover:text-white transition-colors">
+                    <i class="ph ph-scan text-lg"></i> Inventário RFID
+                </button>
+                <button onclick="navegarPara('pdv')" id="menu-pdv" class="botao-menu w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium hover:bg-slate-800 hover:text-white transition-colors">
+                    <i class="ph ph-shopping-cart text-lg"></i> Frente de Caixa (PDV)
+                </button>
+                <button onclick="dispararAlertaBloqueio()" class="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium hover:bg-slate-800 hover:text-white transition-colors opacity-40 cursor-not-allowed">
+                    <i class="ph ph-chart-line-up text-lg"></i> Relatórios Analíticos
+                </button>
+            </nav>
+            
+            <div class="p-4 border-t border-slate-800">
+                <button onclick="executarLogout()" class="w-full flex items-center gap-3 px-3 py-2 text-sm font-medium text-slate-400 hover:text-red-400 transition-colors">
+                    <i class="ph ph-sign-out text-lg"></i> Encerrar Sessão
+                </button>
+            </div>
+        </aside>
+
+        <main class="flex-1 flex flex-col h-full bg-slate-50 overflow-hidden">
+            
+            <header class="h-16 bg-white border-b border-slate-200 flex items-center justify-between px-6 shrink-0 z-10">
+                <h2 id="titulo-pagina-atual" class="text-xl font-semibold text-slate-800">Painel de Controle</h2>
+                <div class="flex items-center gap-4">
+                    <button class="w-10 h-10 rounded-full hover:bg-slate-100 flex items-center justify-center text-slate-500 relative transition-colors">
+                        <i class="ph ph-bell text-xl"></i>
+                        <span class="absolute top-2 right-2 w-2 h-2 bg-red-500 rounded-full border border-white"></span>
+                    </button>
+                    <div class="w-px h-6 bg-slate-200"></div>
+                    <div class="flex items-center gap-3">
+                        <div class="text-right hidden sm:block">
+                            <p class="text-sm font-medium text-slate-700" id="nome-usuario-sessao">Matheus Pereira</p>
+                            <p class="text-xs text-slate-500">ID: USR-001</p>
+                        </div>
+                        <img src="https://ui-avatars.com/api/?name=Matheus+Pereira&background=1e3a8a&color=fff" alt="Avatar do Usuário" class="w-10 h-10 rounded-full border border-slate-200">
+                    </div>
+                </div>
+            </header>
+
+            <div class="flex-1 overflow-auto p-6">
+                
+                <div id="tela-dashboard" class="secao-view space-y-6">
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                        <div class="bg-white p-5 rounded-xl border border-slate-200 shadow-sm flex items-start justify-between">
+                            <div>
+                                <p class="text-sm font-medium text-slate-500 mb-1">Saldo Atual em Estoque</p>
+                                <h3 class="text-2xl font-bold text-slate-800">3.450 <span class="text-sm font-normal text-slate-500">unidades</span></h3>
+                                <p class="text-xs text-emerald-500 mt-2 flex items-center gap-1"><i class="ph ph-trend-up"></i> +12% no período atual</p>
+                            </div>
+                            <div class="w-12 h-12 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center text-2xl">
+                                <i class="ph ph-stack"></i>
+                            </div>
+                        </div>
+                        <div class="bg-white p-5 rounded-xl border border-slate-200 shadow-sm flex items-start justify-between">
+                            <div>
+                                <p class="text-sm font-medium text-slate-500 mb-1">Faturamento Bruto Diário</p>
+                                <h3 class="text-2xl font-bold text-slate-800">R$ 12.450,00</h3>
+                                <p class="text-xs text-emerald-500 mt-2 flex items-center gap-1"><i class="ph ph-trend-up"></i> +5.2% em relação a ontem</p>
+                            </div>
+                            <div class="w-12 h-12 rounded-lg bg-emerald-50 text-emerald-600 flex items-center justify-center text-2xl">
+                                <i class="ph ph-currency-circle-dollar"></i>
+                            </div>
+                        </div>
+                        <div class="bg-white p-5 rounded-xl border border-slate-200 shadow-sm flex items-start justify-between">
+                            <div>
+                                <p class="text-sm font-medium text-slate-500 mb-1">Índice de Giro de Estoque</p>
+                                <h3 class="text-2xl font-bold text-slate-800">1.8x</h3>
+                                <p class="text-xs text-red-500 mt-2 flex items-center gap-1"><i class="ph ph-trend-down"></i> -0.2x em relação ao mês anterior</p>
+                            </div>
+                            <div class="w-12 h-12 rounded-lg bg-purple-50 text-purple-600 flex items-center justify-center text-2xl">
+                                <i class="ph ph-arrows-clockwise"></i>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                        <div class="lg:col-span-2 bg-white border border-slate-200 rounded-xl shadow-sm p-5">
+                            <h3 class="text-lg font-semibold text-slate-800 mb-4">Fluxo de Monitoramento Operacional</h3>
+                            <div class="w-full h-64 bg-slate-50 rounded-lg border border-slate-100 flex items-end justify-between px-6 pb-2 pt-6 relative overflow-hidden">
+                                <div class="w-1/12 bg-blue-200 h-1/3 rounded-t shadow-sm"></div>
+                                <div class="w-1/12 bg-blue-300 h-1/2 rounded-t shadow-sm"></div>
+                                <div class="w-1/12 bg-blue-400 h-3/4 rounded-t shadow-sm"></div>
+                                <div class="w-1/12 bg-blue-300 h-2/3 rounded-t shadow-sm"></div>
+                                <div class="w-1/12 bg-blue-600 h-full rounded-t shadow-sm"></div>
+                                <div class="w-1/12 bg-blue-400 h-4/5 rounded-t shadow-sm"></div>
+                                <div class="w-1/12 bg-blue-500 h-3/5 rounded-t shadow-sm"></div>
+                            </div>
+                        </div>
+                        
+                        <div class="bg-white border border-slate-200 rounded-xl shadow-sm p-5 flex flex-col">
+                            <div class="flex items-center justify-between mb-4">
+                                <h3 class="text-lg font-semibold text-slate-800">Alertas de Reposição</h3>
+                                <span class="bg-red-100 text-red-600 text-xs font-bold px-2.5 py-1 rounded-full">3 Críticos</span>
+                            </div>
+                            <p class="text-xs text-slate-500 mb-4">Média móvel (30 dias) acrescida de 10% de margem de segurança.</p>
+                            
+                            <div class="flex-1 overflow-auto space-y-3">
+                                <div class="p-3 border border-red-200 bg-red-50 rounded-lg flex items-start gap-3">
+                                    <i class="ph-fill ph-warning text-red-500 text-xl mt-0.5"></i>
+                                    <div>
+                                        <p class="text-sm font-semibold text-slate-800">Camisa Polo Azul (M)</p>
+                                        <p class="text-xs text-red-600 font-medium">Estoque: 2 un. | Mínimo Crítico: 15 un.</p>
+                                    </div>
+                                </div>
+                                <div class="p-3 border border-red-200 bg-red-50 rounded-lg flex items-start gap-3">
+                                    <i class="ph-fill ph-warning text-red-500 text-xl mt-0.5"></i>
+                                    <div>
+                                        <p class="text-sm font-semibold text-slate-800">Vestido Floral Verão (P)</p>
+                                        <p class="text-xs text-red-600 font-medium">Estoque: 0 un. | Mínimo Crítico: 8 un.</p>
+                                    </div>
+                                </div>
+                                <div class="p-3 border border-amber-200 bg-amber-50 rounded-lg flex items-start gap-3">
+                                    <i class="ph-fill ph-warning-circle text-amber-500 text-xl mt-0.5"></i>
+                                    <div>
+                                        <p class="text-sm font-semibold text-slate-800">Calça Jeans Skinny (42)</p>
+                                        <p class="text-xs text-amber-600 font-medium">Estoque: 5 un. | Mínimo Crítico: 12 un.</p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div id="tela-produtos" class="secao-view hidden flex flex-col h-full gap-6">
+                    <div class="bg-white border border-slate-200 rounded-xl shadow-sm p-6 shrink-0">
+                        <h3 class="text-lg font-semibold text-slate-800 border-b border-slate-100 pb-3 mb-4">Inserção de Novo Produto</h3>
+                        <form onsubmit="event.preventDefault(); executarGravacaoProduto();" class="grid grid-cols-1 md:grid-cols-4 gap-4">
+                            <div class="md:col-span-2">
+                                <label class="block text-xs font-medium text-slate-500 mb-1">Descrição Comercial do Produto</label>
+                                <input type="text" id="form-nome" placeholder="Ex: Jaqueta Jeans com Forro" class="w-full px-3 py-2 border border-slate-300 rounded-md focus:ring-2 focus:ring-blue-500 outline-none text-sm" required>
+                            </div>
+                            <div>
+                                <label class="block text-xs font-medium text-slate-500 mb-1">Categoria</label>
+                                <select id="form-categoria" class="w-full px-3 py-2 border border-slate-300 rounded-md focus:ring-2 focus:ring-blue-500 outline-none text-sm bg-white">
+                                    <option>Casacos e Jaquetas</option>
+                                    <option>Camisas</option>
+                                    <option>Calças</option>
+                                    <option>Vestidos</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label class="block text-xs font-medium text-slate-500 mb-1">Tamanho</label>
+                                <select id="form-tamanho" class="w-full px-3 py-2 border border-slate-300 rounded-md focus:ring-2 focus:ring-blue-500 outline-none text-sm bg-white">
+                                    <option>P</option>
+                                    <option>M</option>
+                                    <option>G</option>
+                                    <option>GG</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label class="block text-xs font-medium text-slate-500 mb-1">Cor Predominante</label>
+                                <input type="text" id="form-cor" placeholder="Ex: Azul Escuro" class="w-full px-3 py-2 border border-slate-300 rounded-md focus:ring-2 focus:ring-blue-500 outline-none text-sm" required>
+                            </div>
+                            <div>
+                                <label class="block text-xs font-medium text-slate-500 mb-1">Preço Unitário (R$)</label>
+                                <input type="number" step="0.01" id="form-preco" placeholder="0.00" class="w-full px-3 py-2 border border-slate-300 rounded-md focus:ring-2 focus:ring-blue-500 outline-none text-sm" required>
+                            </div>
+                            
+                            <div class="md:col-span-2 relative">
+                                <label class="block text-xs font-medium text-slate-500 mb-1 flex items-center gap-1">
+                                    Código de Identificação RFID <i class="ph ph-wifi-high text-blue-500"></i>
+                                </label>
+                                <div class="flex">
+                                    <input type="text" id="campo-rfid-cadastro" placeholder="Aproxime a tag do hardware leitor..." class="w-full px-3 py-2 border border-slate-300 border-r-0 rounded-l-md bg-slate-50 text-sm font-mono focus:outline-none" readonly required>
+                                    <button type="button" onclick="executarCapturaRFID('campo-rfid-cadastro')" class="bg-blue-50 border border-blue-200 text-blue-600 px-4 py-2 rounded-r-md hover:bg-blue-100 transition-colors text-sm font-medium flex items-center gap-1">
+                                        Capturar
+                                    </button>
+                                </div>
+                            </div>
+                            
+                            <div class="md:col-span-4 flex justify-end mt-2">
+                                <button type="submit" class="bg-slate-800 hover:bg-slate-900 text-white px-5 py-2 rounded-md text-sm font-medium transition-colors border-0">
+                                    Salvar Registro Físico
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+
+                    <div class="bg-white border border-slate-200 rounded-xl shadow-sm flex-1 flex flex-col min-h-0">
+                        <div class="p-4 border-b border-slate-100 flex items-center justify-between">
+                            <h3 class="text-sm font-semibold text-slate-800">Catálogo Geral de Produtos</h3>
+                            <div class="relative">
+                                <i class="ph ph-magnifying-glass absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400"></i>
+                                <input type="text" placeholder="Buscar registros..." class="pl-9 pr-4 py-1.5 border border-slate-300 rounded-md text-sm outline-none focus:border-blue-500">
+                            </div>
+                        </div>
+                        <div class="flex-1 overflow-auto">
+                            <table class="w-full text-left border-collapse text-sm">
+                                <thead class="bg-slate-50 sticky top-0 border-b border-slate-200 text-slate-500 font-medium">
+                                    <tr>
+                                        <th class="py-3 px-4">ID Físico</th>
+                                        <th class="py-3 px-4">Nome do Produto</th>
+                                        <th class="py-3 px-4">Categoria</th>
+                                        <th class="py-3 px-4">Tamanho</th>
+                                        <th class="py-3 px-4">Preço Comercial</th>
+                                        <th class="py-3 px-4">Estoque Atual</th>
+                                        <th class="py-3 px-4">Código EPC RFID</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="tabela-produtos-corpo" class="divide-y divide-slate-100 text-slate-700">
+                                    <tr class="hover:bg-slate-50">
+                                        <td class="py-3 px-4 text-slate-500">PRD-001</td>
+                                        <td class="py-3 px-4 font-medium">Camisa Social Branca</td>
+                                        <td class="py-3 px-4">Camisas</td>
+                                        <td class="py-3 px-4">M</td>
+                                        <td class="py-3 px-4">R$ 120,00</td>
+                                        <td class="py-3 px-4"><span class="px-2 py-1 bg-emerald-100 text-emerald-700 rounded-full text-xs font-semibold">45 un</span></td>
+                                        <td class="py-3 px-4 font-mono text-xs text-slate-400">E200001B051A0172</td>
+                                    </tr>
+                                    <tr class="hover:bg-slate-50">
+                                        <td class="py-3 px-4 text-slate-500">PRD-002</td>
+                                        <td class="py-3 px-4 font-medium">Calça Jeans Skinny</td>
+                                        <td class="py-3 px-4">Calças</td>
+                                        <td class="py-3 px-4">42</td>
+                                        <td class="py-3 px-4">R$ 189,90</td>
+                                        <td class="py-3 px-4"><span class="px-2 py-1 bg-amber-100 text-amber-700 rounded-full text-xs font-semibold">5 un</span></td>
+                                        <td class="py-3 px-4 font-mono text-xs text-slate-400">E200001B052F019C</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+                <div id="tela-inventario" class="secao-view hidden h-full flex flex-col gap-6">
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                        <div class="bg-white border border-slate-200 rounded-xl shadow-sm p-6 flex flex-col items-center justify-center text-center relative overflow-hidden" id="box-antena-rfid">
+                            <div class="linha-scanner"></div>
+                            <div class="w-20 h-20 bg-blue-50 text-blue-600 rounded-full flex items-center justify-center mb-4 border-4 border-blue-100 relative z-10">
+                                <i class="ph ph-waves text-4xl"></i>
+                            </div>
+                            <h3 class="text-lg font-bold text-slate-800 mb-1 z-10">Antena Coletora LLRP</h3>
+                            <p class="text-sm text-slate-500 mb-6 z-10">Modo de Captura em Massa Ativo</p>
+                            
+                            <button id="botao-varredura-lote" onclick="gerenciarLeituraLote()" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-medium py-3 rounded-lg shadow-md transition-colors z-10 flex items-center justify-center gap-2 border-0">
+                                <i class="ph ph-play"></i> Iniciar Captura em Lote
+                            </button>
+                        </div>
+                        
+                        <div class="md:col-span-2 bg-white border border-slate-200 rounded-xl shadow-sm p-6 flex flex-col justify-center">
+                            <div class="flex justify-between items-end mb-4">
+                                <div>
+                                    <p class="text-sm font-medium text-slate-500">Etiquetas Capturadas</p>
+                                    <h2 class="text-5xl font-bold text-slate-800" id="contador-tags-lote">0</h2>
+                                </div>
+                                <div class="text-right">
+                                    <p class="text-sm text-slate-500 mb-1">Status do Barramento</p>
+                                    <p class="text-lg font-semibold text-emerald-600" id="status-conexao-antena">Canal Ocioso</p>
+                                </div>
+                            </div>
+                            <div class="w-full bg-slate-100 rounded-full h-3 mb-6 overflow-hidden border border-slate-200">
+                                <div class="bg-blue-500 h-3 rounded-full transition-all duration-300" style="width: 0%" id="barra-progresso-lote"></div>
+                            </div>
+                            <button onclick="executarConsolidacaoEstoque()" class="w-full bg-slate-800 hover:bg-slate-900 text-white font-medium py-2.5 rounded-lg transition-colors flex items-center justify-center gap-2 disabled:opacity-40 disabled:cursor-not-allowed border-0" id="botao-consolidar-estoque" disabled>
+                                <i class="ph ph-check-circle"></i> Consolidar Dados Físicos (Ajuste)
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="bg-white border border-slate-200 rounded-xl shadow-sm flex-1 flex flex-col min-h-0">
+                        <div class="p-4 border-b border-slate-100 bg-slate-50 rounded-t-xl">
+                            <h3 class="text-sm font-semibold text-slate-800">Buffer de Transmissão de Sinais (Log Real)</h3>
+                        </div>
+                        <div class="flex-1 overflow-auto p-4 bg-slate-950 rounded-b-xl border border-slate-900">
+                            <div id="log-transmissao-rfid" class="space-y-2 font-mono text-xs text-slate-400">
+                                <p class="italic text-slate-500">Canal aguardando acionamento da antena.</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div id="tela-pdv" class="secao-view hidden h-full flex flex-col lg:flex-row gap-6">
+                    <div class="lg:w-2/3 bg-white border border-slate-200 rounded-xl shadow-sm flex flex-col min-h-[400px]">
+                        <div class="p-5 border-b border-slate-100 bg-blue-50/50 rounded-t-xl flex items-center justify-between">
+                            <div class="flex items-center gap-3">
+                                <div class="relative flex h-3 w-3">
+                                  <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-blue-400 opacity-75"></span>
+                                  <span class="relative inline-flex rounded-full h-3 w-3 bg-blue-500"></span>
+                                </div>
+                                <h3 class="font-semibold text-blue-900 text-sm">Antena de Passagem PDV Ativa</h3>
+                            </div>
+                            <button onclick="simularLeituraPecaPDV()" class="text-xs bg-white border border-blue-200 text-blue-600 px-3 py-1.5 rounded hover:bg-blue-50 transition-colors font-medium">Simular Leitura de Peça</button>
+                        </div>
+                        <div class="flex-1 overflow-auto">
+                            <table class="w-full text-left text-sm">
+                                <thead class="bg-slate-50 border-b border-slate-200 text-slate-500 font-medium">
+                                    <tr>
+                                        <th class="py-3 px-4">Item</th>
+                                        <th class="py-3 px-4">Código EPC RFID</th>
+                                        <th class="py-3 px-4 text-right">Qtd</th>
+                                        <th class="py-3 px-4 text-right">Valor Unitário</th>
+                                        <th class="py-3 px-4 text-right">Subtotal</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="corpo-tabela-pdv" class="divide-y divide-slate-100">
+                                    <tr id="mensagem-vazio-pdv">
+                                        <td colspan="5" class="py-10 text-center text-slate-400 italic">Aguardando a passagem de itens na antena do ponto de venda.</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <div class="lg:w-1/3 flex flex-col gap-6">
+                        <div class="bg-slate-900 text-white rounded-xl shadow-lg p-6 relative overflow-hidden">
+                            <div class="absolute -right-6 -top-6 text-slate-800 opacity-20">
+                                <i class="ph ph-shopping-bag text-9xl"></i>
+                            </div>
+                            <p class="text-slate-400 text-xs font-medium mb-1 relative z-10">Valor Consolidado da Venda</p>
+                            <h2 class="text-4xl font-bold mb-6 relative z-10" id="valor-total-venda-pdv">R$ 0,00</h2>
+                            
+                            <div class="space-y-4 relative z-10">
+                                <div>
+                                    <label class="block text-xs font-medium text-slate-400 mb-1">Modalidade de Pagamento</label>
+                                    <select class="w-full px-3 py-2 border border-slate-700 bg-slate-800 rounded-md focus:ring-2 focus:ring-blue-500 outline-none text-sm text-white">
+                                        <option>Cartão de Crédito</option>
+                                        <option>Cartão de Débito</option>
+                                        <option>PIX / Transferência Eletrônica</option>
+                                        <option>Moeda Corrente (Espécie)</option>
+                                    </select>
+                                </div>
+                                <button onclick="executarFechamentoVenda()" class="w-full bg-emerald-500 hover:bg-emerald-600 text-white font-bold py-3.5 rounded-lg shadow-md transition-transform transform hover:scale-[1.01] flex items-center justify-center gap-2 mt-4 border-0 text-md">
+                                    <i class="ph ph-check-circle"></i> Concluir Operação
+                                </button>
+                                <p class="text-center text-[10px] text-slate-500 mt-2">A baixa automática do estoque físico está vinculada à confirmação do pagamento (RN03).</p>
+                            </div>
+                        </div>
+                        
+                        <div class="bg-white border border-slate-200 rounded-xl shadow-sm p-5 flex-1">
+                            <h3 class="text-xs font-bold uppercase tracking-wider text-slate-400 mb-3 border-b border-slate-100 pb-2">Ações Auxiliares</h3>
+                            <div class="grid grid-cols-2 gap-2">
+                                <button onclick="dispararAlertaBloqueio()" class="p-3 border border-slate-200 rounded-lg text-xs font-medium text-slate-600 hover:bg-slate-50 flex flex-col items-center gap-1 bg-white">
+                                    <i class="ph ph-tag text-lg"></i> Conceder Desconto
+                                </button>
+                                <button onclick="dispararAlertaBloqueio()" class="p-3 border border-slate-200 rounded-lg text-xs font-medium text-slate-600 hover:bg-slate-50 flex flex-col items-center gap-1 bg-white">
+                                    <i class="ph ph-identification-card text-lg"></i> Inserir CPF
+                                </button>
+                                <button onclick="cancelarOperacaoVenda()" class="p-3 border border-slate-200 rounded-lg text-xs font-medium text-red-600 hover:bg-red-50 flex flex-col items-center gap-1 bg-white">
+                                    <i class="ph ph-trash text-lg"></i> Cancelar Venda
+                                </button>
+                                <button onclick="dispararAlertaBloqueio()" class="p-3 border border-slate-200 rounded-lg text-xs font-medium text-slate-600 hover:bg-slate-50 flex flex-col items-center gap-1 bg-white">
+                                    <i class="ph ph-receipt text-lg"></i> Emitir Segunda Via
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+        </main>
+    </div>
+
+    <script>
+        // Configurações de Sessão e Controle de Perfil (US01 / RN02)
+        let usuarioAutenticado = null;
+
+        function executarLogin() {
+            const email = document.getElementById('login-email').value;
+            
+            // Determinação de perfil com base no login para simular restrições físicas (RN02)
+            if(email.includes('gerente')) {
+                usuarioAutenticado = { nome: "Matheus Pereira", perfil: "Gerente", id: "USR-001" };
+            } else {
+                usuarioAutenticado = { nome: "Operador Padrão", perfil: "Caixa", id: "USR-004" };
+            }
+
+            document.getElementById('nome-usuario-sessao').innerText = usuarioAutenticado.nome;
+            document.getElementById('perfil-usuario-painel').innerText = usuarioAutenticado.perfil;
+
+            document.getElementById('tela-login').classList.add('hidden');
+            document.getElementById('container-aplicacao').classList.remove('hidden');
+            navegarPara('dashboard');
+            gerarNotificacao('Autenticação realizada com sucesso. Canal seguro ativado.', 'success');
+        }
+
+        function executarLogout() {
+            usuarioAutenticado = null;
+            document.getElementById('container-aplicacao').classList.add('hidden');
+            document.getElementById('tela-login').classList.remove('hidden');
+        }
+
+        // Roteamento SPA Simplificado
+        const titulosModulos = {
+            'dashboard': 'Painel de Controle',
+            'produtos': 'Cadastro de Produtos com Associação RFID',
+            'inventario': 'Inventário Massivo (Leitura em Lote)',
+            'pdv': 'Frente de Caixa (PDV)'
+        };
+
+        function navegarPara(viewId) {
+            document.querySelectorAll('.secao-view').forEach(el => el.classList.add('hidden'));
+            document.querySelectorAll('.botao-menu').forEach(el => {
+                el.classList.remove('bg-blue-600/10', 'text-blue-400');
+                el.classList.add('text-slate-300');
+            });
+            
+            document.getElementById('tela-' + viewId).classList.remove('hidden');
+            document.getElementById('menu-' + viewId).classList.add('bg-blue-600/10', 'text-blue-400');
+            document.getElementById('menu-' + viewId).classList.remove('text-slate-300');
+            
+            document.getElementById('titulo-pagina-atual').innerText = titulosModulos[viewId];
+        }
+
+        // Disparador de Notificações em Tela (Toast UI)
+        function gerarNotificacao(mensagem, tipo = 'info') {
+            const container = document.getElementById('container-notificacao');
+            const toast = document.createElement('div');
+            
+            let classeEstilo = 'bg-slate-800 border-slate-700 text-white';
+            let icone = '<i class="ph ph-info text-xl"></i>';
+            
+            if(tipo === 'success') {
+                classeEstilo = 'bg-emerald-50 border-emerald-200 text-emerald-800';
+                icone = '<i class="ph-fill ph-check-circle text-emerald-500 text-xl"></i>';
+            } else if(tipo === 'error') {
+                classeEstilo = 'bg-red-50 border-red-200 text-red-800';
+                icone = '<i class="ph-fill ph-warning text-red-500 text-xl"></i>';
+            }
+
+            toast.className = `flex items-center gap-3 px-4 py-3 rounded-lg shadow-lg border ${classeEstilo} transform transition-all duration-300 translate-x-10 opacity-0`;
+            toast.innerHTML = `${icone} <span class="text-sm font-medium">${mensagem}</span>`;
+            
+            container.appendChild(toast);
+            setTimeout(() => { toast.classList.remove('translate-x-10', 'opacity-0'); }, 10);
+            
+            setTimeout(() => {
+                toast.classList.add('opacity-0', 'translate-x-10');
+                setTimeout(() => toast.remove(), 300);
+            }, 3000);
+        }
+
+        function dispararAlertaBloqueio() {
+            gerarNotificacao('Esta funcionalidade encontra-se restrita à implementação final do backend.', 'error');
+        }
+
+        // Captura de Tag Unica de RFID (Simulação de Hardware por Evento)
+        function executarCapturaRFID(idCampoDestino) {
+            const input = document.getElementById(idCampoDestino);
+            input.value = "Aguardando sinal do hardware...";
+            input.classList.add('animate-pulse');
+            
+            setTimeout(() => {
+                input.classList.remove('animate-pulse');
+                const caracteresHex = '0123456789ABCDEF';
+                let tagGerada = 'E200001B'; // Prefixo simulado fixo
+                for (let i = 0; i < 8; i++) {
+                    tagGerada += caracteresHex[Math.floor(Math.random() * 16)];
+                }
+                input.value = tagGerada;
+                gerarNotificacao('Código RFID detectado e sincronizado via rádio-frequência.', 'success');
+            }, 1200);
+        }
+
+        // Gravação Simulada de Item no Catálogo
+        let contadorLinhasProduto = 3;
+        function executarGravacaoProduto() {
+            const nome = document.getElementById('form-nome').value;
+            const categoria = document.getElementById('form-categoria').value;
+            const tamanho = document.getElementById('form-tamanho').value;
+            const preco = parseFloat(document.getElementById('form-preco').value).toFixed(2);
+            const rfid = document.getElementById('campo-rfid-cadastro').value;
+
+            const tabelaCorpo = document.getElementById('tabela-produtos-corpo');
+            const novaLinha = document.createElement('tr');
+            novaLinha.className = "hover:bg-slate-50";
+            novaLinha.innerHTML = `
+                <td class="py-3 px-4 text-slate-500">PRD-00${++contadorLinhasProduto}</td>
+                <td class="py-3 px-4 font-medium text-slate-800">${nome}</td>
+                <td class="py-3 px-4">${categoria}</td>
+                <td class="py-3 px-4">${tamanho}</td>
+                <td class="py-3 px-4">R$ ${preco.replace('.', ',')}</td>
+                <td class="py-3 px-4"><span class="px-2 py-1 bg-emerald-100 text-emerald-700 rounded-full text-xs font-semibold">1 un</span></td>
+                <td class="py-3 px-4 font-mono text-xs text-slate-400">${rfid}</td>
+            `;
+            
+            tabelaCorpo.appendChild(novaLinha);
+            gerarNotificacao('Produto registrado e indexado no banco de dados com sucesso.', 'success');
+            
+            // Limpeza do formulário
+            document.getElementById('form-nome').value = '';
+            document.getElementById('form-preco').value = '';
+            document.getElementById('campo-rfid-cadastro').value = '';
+        }
+
+        // Mecanismo de Coleta e Varredura em Lote (US04)
+        let flagVarreduraLote = false;
+        let temporizadorLote;
+        let tagsColetadasAcumulado = 0;
+
+        function gerenciarLeituraLote() {
+            const botao = document.getElementById('botao-varredura-lote');
+            const containerAntena = document.getElementById('box-antena-rfid');
+            const logSinais = document.getElementById('log-transmissao-rfid');
+            const textContador = document.getElementById('contador-tags-lote');
+            const barraProgresso = document.getElementById('barra-progresso-lote');
+            const textoStatus = document.getElementById('status-conexao-antena');
+            const botaoConsolidacao = document.getElementById('botao-consolidar-estoque');
+
+            if(!flagVarreduraLote) {
+                // Ativar Processamento
+                flagVarreduraLote = true;
+                tagsColetadasAcumulado = 0;
+                logSinais.innerHTML = '';
+                botao.innerHTML = '<i class="ph ph-stop"></i> Interromper Captura';
+                botao.classList.replace('bg-blue-600', 'bg-red-600');
+                botao.classList.replace('hover:bg-blue-700', 'hover:bg-red-700');
+                containerAntena.classList.add('escanear');
+                botaoConsolidacao.disabled = true;
+                textoStatus.innerText = "Sincronizando Barramento...";
+                textoStatus.classList.replace('text-emerald-600', 'text-blue-600');
+
+                temporizadorLote = setInterval(() => {
+                    tagsColetadasAcumulado += Math.floor(Math.random() * 4) + 1;
+                    if(tagsColetadasAcumulado > 114) tagsColetadasAcumulado = 114;
+                    
+                    textContador.innerText = tagsColetadasAcumulado;
+                    barraProgresso.style.width = (tagsColetadasAcumulado / 114 * 100) + '%';
+                    
+                    const hexHash = [...Array(16)].map(() => Math.floor(Math.random() * 16).toString(16)).join('').toUpperCase();
+                    const itemLog = document.createElement('p');
+                    itemLog.innerHTML = `<span class="text-blue-500">[${new Date().toLocaleTimeString()}]</span> Tag EPC detectada: ${hexHash} - <span class="text-emerald-400">Verificado</span>`;
+                    logSinais.prepend(itemLog);
+
+                    if(tagsColetadasAcumulado >= 114) gerenciarLeituraLote();
+
+                }, 300);
+            } else {
+                // Finalizar Operação de Escaneamento
+                flagVarreduraLote = false;
+                clearInterval(temporizadorLote);
+                botao.innerHTML = '<i class="ph ph-play"></i> Nova Captura em Lote';
+                botao.classList.replace('bg-red-600', 'bg-blue-600');
+                botao.classList.replace('hover:bg-red-700', 'hover:bg-blue-700');
+                containerAntena.classList.remove('escanear');
+                botaoConsolidacao.disabled = false;
+                textoStatus.innerText = "Buffer Pronto para Consolidação";
+                textoStatus.classList.replace('text-blue-600', 'text-emerald-600');
+            }
+        }
+
+        function executarConsolidacaoEstoque() {
+            // Aplicação da RN02 na validação do perfil de usuário
+            if(usuarioAutenticado && usuarioAutenticado.perfil === "Gerente") {
+                gerarNotificacao('Ajuste de estoque físico e logs de auditoria consolidados com sucesso.', 'success');
+                document.getElementById('botao-consolidar-estoque').disabled = true;
+            } else {
+                gerarNotificacao('Acesso Negado: Ajustes de estoque exigem perfil de Gerente ou Administrador (RN02).', 'error');
+            }
+        }
+
+        // Fluxo de Ponto de Venda Automatizado (PDV - US06 / RN03)
+        let somatorioValorPDV = 0;
+        const bancoItensMock = [
+            { descricao: "Casaco de Lã Batida", preco: 299.90 },
+            { descricao: "Calça de Sarja Masculina", price: 149.90 },
+            { descricao: "Vestido de Festa Longo", price: 349.00 }
+        ];
+
+        function simularLeituraPecaPDV() {
+            const corpoTabela = document.getElementById('corpo-tabela-pdv');
+            const linhaVazia = document.getElementById('mensagem-vazio-pdv');
+            if(linhaVazia) linhaVazia.remove();
+
+            const itemSorteado = bancoItensMock[Math.floor(Math.random() * bancoItensMock.length)];
+            const rfidEPC = "E200001B" + Math.floor(Math.random() * 89999 + 10000);
+            
+            const tr = document.createElement('tr');
+            tr.className = "hover:bg-slate-50 border-b border-slate-100";
+            tr.innerHTML = `
+                <td class="py-3 px-4 font-medium text-slate-800">${itemSorteado.descricao}</td>
+                <td class="py-3 px-4 font-mono text-xs text-slate-400">${rfidEPC}</td>
+                <td class="py-3 px-4 text-right">1</td>
+                <td class="py-3 px-4 text-right text-slate-600">R$ ${itemSorteado.descricao === "Casaco de Lã Batida" ? "299,90" : itemSorteado.descricao === "Calça de Sarja Masculina" ? "149,90" : "349,00"}</td>
+                <td class="py-3 px-4 text-right font-semibold text-slate-800">R$ ${itemSorteado.descricao === "Casaco de Lã Batida" ? "299,90" : itemSorteado.descricao === "Calça de Sarja Masculina" ? "149,90" : "349,00"}</td>
+            `;
+            
+            corpoTabela.appendChild(tr);
+            
+            const precoItem = itemSorteado.descricao === "Casaco de Lã Batida" ? 299.90 : itemSorteado.descricao === "Calça de Sarja Masculina" ? 149.90 : 349.00;
+            somatorioValorPDV += precoItem;
+            document.getElementById('valor-total-venda-pdv').innerText = `R$ ${somatorioValorPDV.toFixed(2).replace('.', ',')}`;
+            
+            gerarNotificacao('Item detectado no campo magnético da antena do caixa.', 'success');
+        }
+
+        function executarFechamentoVenda() {
+            if(somatorioValorPDV === 0) {
+                gerarNotificacao('A operação não possui itens na lista de leitura do PDV.', 'error');
+                return;
+            }
+            
+            // Garantia da Regra de Negócio 03: Baixa apenas após aprovação financeira
+            gerarNotificacao('Transação financeira validada. Baixa sistêmica de estoque processada (RN03).', 'success');
+            cancelarOperacaoVenda();
+        }
+
+        function cancelarOperacaoVenda() {
+            document.getElementById('corpo-tabela-pdv').innerHTML = '<tr id="mensagem-vazio-pdv"><td colspan="5" class="py-10 text-center text-slate-400 italic">Aguardando a passagem de itens na antena do ponto de venda.</td></tr>';
+            somatorioValorPDV = 0;
+            document.getElementById('valor-total-venda-pdv').innerText = "R$ 0,00";
+        }
+    </script>
+</body>
+</html>
